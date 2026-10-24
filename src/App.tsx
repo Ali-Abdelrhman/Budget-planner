@@ -9,6 +9,7 @@ import { TodayPage } from './features/TodayPage'
 import { useSettings } from './hooks/useMonthData'
 
 const ChartsPage = lazy(() => import('./features/ChartsPage').then((m) => ({ default: m.ChartsPage })))
+const CategoryPage = lazy(() => import('./features/CategoryPage').then((m) => ({ default: m.CategoryPage })))
 
 const TABS: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Today', icon: 'today' },
@@ -57,6 +58,14 @@ export function App() {
               element={
                 <Suspense fallback={<div className="page" />}>
                   <ChartsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/c/:id"
+              element={
+                <Suspense fallback={<div className="page" />}>
+                  <CategoryPage />
                 </Suspense>
               }
             />

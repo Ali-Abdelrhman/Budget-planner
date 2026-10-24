@@ -11,6 +11,7 @@ interface Props {
   /** Balances for the month containing `today`, used for the live warning. */
   balances: Map<string, Balance>
   initial?: Transaction
+  defaultCategoryId?: string
   onClose: () => void
 }
 
@@ -34,12 +35,12 @@ function rememberCategory(id: string) {
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del']
 
-export function QuickAddSheet({ tree, today, balances, initial, onClose }: Props) {
+export function QuickAddSheet({ tree, today, balances, initial, defaultCategoryId, onClose }: Props) {
   const leafIds = new Set(tree.leaves.map((l) => l.id))
   const last = readLastCategory()
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '')
   const [categoryId, setCategoryId] = useState<string | null>(
-    initial?.categoryId ?? (last && leafIds.has(last) ? last : null),
+    initial?.categoryId ?? (defaultCategoryId && leafIds.has(defaultCategoryId) ? defaultCategoryId : last && leafIds.has(last) ? last : null),
   )
   const [note, setNote] = useState(initial?.note ?? '')
   const [date, setDate] = useState(initial?.date ?? today)

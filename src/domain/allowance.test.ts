@@ -6,11 +6,12 @@ import {
   computeBalance,
   computeMonth,
   dailyAllocations,
+  dayLedger,
+  forecastMonthEnd,
   monthlyBudget,
   totalAllowance,
 } from './allowance'
 import { monthDays, weeksOfMonth } from './calendar'
-import { spendScale } from './insights'
 import type { Category, Transaction } from './types'
 
 const cats = seedCategories()
@@ -154,15 +155,6 @@ describe('carryover', () => {
   })
 })
 
-describe('chart scale', () => {
-  it('ignores allowance and fits the axis to spending', () => {
-    expect(spendScale([40, 30, 320])).toBe(400)
-    expect(spendScale([490])).toBe(800)
-    expect(spendScale([12])).toBe(100)
-    expect(spendScale([])).toBe(100)
-  })
-})
-
 describe('month totals', () => {
   it('keeps outside-allowance spending out of the allowance total', () => {
     const txs: Transaction[] = [
@@ -179,5 +171,82 @@ describe('month totals', () => {
     expect(m.byGroup.get('g-subs')!.budget).toBe(840)
     expect(m.byCategory.get('c-office')!.todayLeft).toBe(-50)
     expect(m.byCategory.get('c-outings')!.status).toBe('none')
+  })
+})
+
+describe('day ledger', () => {
+  const spendOf = (id: string, entries: [number, number][], n = 30) => {
+    const row = zeros(n)
+    for (const [i, v] of entries) row[i] = v
+    return new Map([[id, row]])
+  }
+
+  it('rolls unspent breakfast allowance across home days and skips office days', () => {
+    const breakfast = cat('c-breakfast')
+    const per = 500 / 22
+    const rows = dayLedger([breakfast], sep('2026-09-03'), spendOf('c-breakfast', [[0, 10]]), {})
+    expect(rows).toHaveLength(3)
+    expect(rows[0].alloc).toBeCloseTo(per, 2)
+    expect(rows[0].balanceAfter).toBeCloseTo(per - 10, 2)
+    expect(rows[1].alloc).toBe(0) // 2 Sep is an office day
+    expect(rows[1].balanceAfter).toBeCloseTo(per - 10, 2)
+    expect(rows[2].balanceAfter).toBeCloseTo(2 * per - 10, 2)
+  })
+
+  it('goes negative on overspend and recovers later', () => {
+    const coffee = cat('c-coffee')
+    const rows = dayLedger([coffee], sep('2026-09-05'), spendOf('c-coffee', [[0, 12]]), {})
+    expect(rows[0].balanceAfter).toBe(-7)
+    expect(rows[1].balanceAfter).toBe(-2)
+    expect(rows[2].balanceAfter).toBe(3)
+    expect(rows[0].spent).toBe(12)
+  })
+
+  it('starts from carryover', () => {
+    const rows = dayLedger([cat('c-coffee')], sep('2026-09-01'), new Map(), { 'c-coffee': 20 })
+    expect(rows[0].balanceAfter).toBe(25)
+  })
+
+  it('sums a group of categories', () => {
+    const spend = new Map([
+      ['c-coffee', [3, ...zeros(29)]],
+      ['c-milk', [1, ...zeros(29)]],
+    ])
+    const rows = dayLedger([cat('c-coffee'), cat('c-milk')], sep('2026-09-01'), spend, {})
+    expect(rows[0].spent).toBe(4)
+    expect(rows[0].alloc).toBeCloseTo(5 + 50 / 30, 2)
+  })
+
+  it('has no balance for categories without a limit', () => {
+    const rows = dayLedger([cat('c-outings')], sep('2026-09-02'), spendOf('c-outings', [[1, 300]]), {})
+    expect(rows[1].spent).toBe(300)
+    expect(rows[1].balanceAfter).toBeNull()
+  })
+
+  it('returns every day for a past month and nothing for a future one', () => {
+    expect(dayLedger([cat('c-coffee')], sep('2026-10-15'), new Map(), {})).toHaveLength(30)
+    expect(dayLedger([cat('c-coffee')], sep('2026-08-15'), new Map(), {})).toHaveLength(0)
+  })
+})
+
+describe('forecast', () => {
+  const coffee = cat('c-coffee')
+  it('projects spending ahead of pace', () => {
+    const row = zeros(30)
+    row[0] = 20 // 10 released by day 2, 20 spent: double rate
+    expect(forecastMonthEnd(coffee, sep('2026-09-02'), row)).toBe(300)
+  })
+  it('projects spending behind pace', () => {
+    const row = zeros(30)
+    row[0] = 5
+    expect(forecastMonthEnd(coffee, sep('2026-09-02'), row)).toBe(75)
+  })
+  it('uses what was spent when nothing is released yet', () => {
+    const row = zeros(30)
+    row[0] = 50
+    expect(forecastMonthEnd(cat('c-office'), sep('2026-09-01'), row)).toBe(50)
+  })
+  it('is not used for monthly bills', () => {
+    expect(forecastMonthEnd(cat('c-anghami'), sep(), zeros(30))).toBeNull()
   })
 })

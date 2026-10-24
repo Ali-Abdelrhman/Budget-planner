@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { MonthCalendar } from '../components/MonthCalendar'
 import { MonthSwitch } from '../components/MonthSwitch'
 import { Money } from '../components/Money'
@@ -13,6 +14,7 @@ export function MonthPage() {
   const today = useToday()
   const [month, setMonth] = useState(monthKeyOf(today))
   const data = useMonthData(month)
+  const navigate = useNavigate()
   if (!data) return <div className="page" />
   const { tree, balances, ctx, plan, settings, spend } = data
   const isCurrent = month === monthKeyOf(today)
@@ -109,8 +111,10 @@ export function MonthPage() {
                 if (!kids) {
                   const b = balances.byCategory.get(g.id)!
                   return (
-                    <tr key={g.id} className="group">
-                      <td>{g.name}</td>
+                    <tr key={g.id} className="group clickable" onClick={() => navigate(`/c/${g.id}?m=${month}`)}>
+                      <td>
+                        <Link to={`/c/${g.id}?m=${month}`}>{g.name}</Link>
+                      </td>
                       {cells(b, g.hasLimit)}
                     </tr>
                   )
@@ -119,16 +123,18 @@ export function MonthPage() {
                 const limitedGroup = kids.some((k) => k.hasLimit)
                 return (
                   <Fragment key={g.id}>
-                    <tr className="group">
+                    <tr className="group clickable" onClick={() => navigate(`/c/${g.id}?m=${month}`)}>
                       <td>
                         <i className="swatch" style={{ background: g.color, display: 'inline-block', marginRight: 8 }} />
-                        {g.name}
+                        <Link to={`/c/${g.id}?m=${month}`}>{g.name}</Link>
                       </td>
                       {cells(gb, limitedGroup)}
                     </tr>
                     {kids.map((c) => (
-                      <tr key={c.id} className="child">
-                        <td>{c.name}</td>
+                      <tr key={c.id} className="child clickable" onClick={() => navigate(`/c/${c.id}?m=${month}`)}>
+                        <td>
+                          <Link to={`/c/${c.id}?m=${month}`}>{c.name}</Link>
+                        </td>
                         {cells(balances.byCategory.get(c.id)!, c.hasLimit)}
                       </tr>
                     ))}

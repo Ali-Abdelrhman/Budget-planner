@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { MonthSwitch } from '../components/MonthSwitch'
 import { Money } from '../components/Money'
 import { QuickAddSheet } from '../components/QuickAddSheet'
@@ -56,6 +57,12 @@ export function HistoryPage() {
       <div className="total-strip">
         <span className="muted">
           {txs.length} {txs.length === 1 ? 'expense' : 'expenses'}
+          {filter !== 'all' && byId.get(filter) && (
+            <>
+              {', '}
+              <Link to={`/c/${filter}?m=${month}`}>open the {byId.get(filter)!.name} page</Link>
+            </>
+          )}
         </span>
         <Money value={total} currency signal={false} />
       </div>

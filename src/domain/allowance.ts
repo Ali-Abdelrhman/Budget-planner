@@ -9,6 +9,7 @@ export interface MonthContext {
   weeks: ISODate[][]
   /** Index into `days` for the day treated as "today". Clamped to the month. */
   todayIndex: number
+  phase: 'past' | 'current' | 'future'
 }
 
 export function buildMonthContext(
@@ -19,8 +20,9 @@ export function buildMonthContext(
 ): MonthContext {
   const days = monthDays(month)
   let todayIndex = days.indexOf(today)
-  if (todayIndex === -1) todayIndex = today < days[0] ? 0 : days.length - 1
-  return { month, days, officeDays: new Set(officeDays), weeks: weeksOfMonth(month, weekStartsOn), todayIndex }
+  const phase = todayIndex !== -1 ? 'current' : today < days[0] ? 'future' : 'past'
+  if (todayIndex === -1) todayIndex = phase === 'future' ? 0 : days.length - 1
+  return { month, days, officeDays: new Set(officeDays), weeks: weeksOfMonth(month, weekStartsOn), todayIndex, phase }
 }
 
 export function matchesRule(day: ISODate, rule: DayRule, officeDays: Set<ISODate>): boolean {
@@ -280,4 +282,59 @@ export function computeMonth(
       false,
     ),
   }
+}
+
+export interface LedgerDay {
+  index: number
+  day: ISODate
+  /** Allowance released on this day across the limited categories. */
+  alloc: number
+  /** Everything spent on this day across the given categories. */
+  spent: number
+  /** Balance left after this day for the limited categories, null when none have a limit. */
+  balanceAfter: number | null
+}
+
+/** One row per elapsed day of the month: what was released, what was spent, and the running balance. */
+export function dayLedger(
+  cats: Category[],
+  ctx: MonthContext,
+  spend: Map<string, number[]>,
+  carryover: Record<string, number>,
+): LedgerDay[] {
+  if (ctx.phase === 'future') return []
+  const limited = cats.filter((c) => c.hasLimit)
+  const allocs = limited.map((c) => dailyAllocations(c, ctx))
+  let balance = limited.reduce((s, c) => s + (carryover[c.id] ?? 0), 0)
+  const rows: LedgerDay[] = []
+  for (let i = 0; i <= ctx.todayIndex; i++) {
+    const alloc = allocs.reduce((s, a) => s + a[i], 0)
+    const spent = cats.reduce((s, c) => s + (spend.get(c.id)?.[i] ?? 0), 0)
+    const spentLimited = limited.reduce((s, c) => s + (spend.get(c.id)?.[i] ?? 0), 0)
+    balance += alloc - spentLimited
+    rows.push({
+      index: i,
+      day: ctx.days[i],
+      alloc: round2(alloc),
+      spent: round2(spent),
+      balanceAfter: limited.length ? round2(balance) : null,
+    })
+  }
+  return rows
+}
+
+/**
+ * Expected spending by month end at the current rate: spent so far divided by allowance released so far,
+ * applied to the full budget. Only meaningful for daily and weekly categories.
+ */
+export function forecastMonthEnd(cat: Category, ctx: MonthContext, spendRow: number[]): number | null {
+  if (!cat.hasLimit || cat.pacing === 'monthly') return null
+  const t = ctx.todayIndex
+  const spentSoFar = sum(spendRow, 0, t)
+  if (ctx.phase === 'past') return round2(sum(spendRow))
+  if (ctx.phase === 'future') return 0
+  const released = sum(dailyAllocations(cat, ctx), 0, t)
+  const budget = monthlyBudget(cat, ctx)
+  if (released <= 0) return round2(spentSoFar)
+  return round2(Math.max(spentSoFar, (spentSoFar / released) * budget))
 }

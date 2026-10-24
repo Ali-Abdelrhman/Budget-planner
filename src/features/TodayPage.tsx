@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { Meter } from '../components/Meter'
 import { Money } from '../components/Money'
@@ -69,7 +70,7 @@ export function TodayPage() {
 
       <div className="toolbar" style={{ borderBottom: 0, paddingBottom: 0 }}>
         <span className="muted" style={{ fontSize: 13 }}>
-          Unspent allowance rolls into the next day and week. Red means over.
+          Unspent allowance rolls into the next day and week. Red means over. Tap a category to see its days.
         </span>
         <button className="btn btn-primary add-bar" onClick={() => setAdding(true)}>
           <Icon name="plus" size={18} /> Add expense
@@ -98,7 +99,7 @@ export function TodayPage() {
           {outsideGroups.flatMap((g) => tree.childrenOf.get(g.id) ?? [g]).map((c) => {
             const b = balances.byCategory.get(c.id)!
             return (
-              <div className="ledger-row" key={c.id} style={{ gridTemplateColumns: 'minmax(0,1fr) auto auto' }}>
+              <Link to={`/c/${c.id}`} className="ledger-row link-row" key={c.id} style={{ gridTemplateColumns: 'minmax(0,1fr) auto auto' }}>
                 <span className="label">
                   <span className="title">{c.name}</span>
                 </span>
@@ -106,7 +107,7 @@ export function TodayPage() {
                   today {formatEGP(b.spentToday)}
                 </span>
                 <Money value={b.spentMonth} signal={false} />
-              </div>
+              </Link>
             )
           })}
         </section>
@@ -157,7 +158,7 @@ function GroupRows({ group, data, today }: { group: Category; data: MonthData; t
   const gb = balances.byGroup.get(group.id) ?? balances.byCategory.get(group.id)!
   return (
     <>
-      <div className="ledger-group">
+      <Link to={`/c/${group.id}`} className="ledger-group link-row">
         <span className="name">
           <i className="swatch" style={{ background: group.color }} />
           {group.name}
@@ -165,7 +166,7 @@ function GroupRows({ group, data, today }: { group: Category; data: MonthData; t
         <span className="muted" style={{ fontSize: 12 }}>
           <Money value={gb.monthLeft} /> left of {formatEGP(gb.budget + gb.carryover)}
         </span>
-      </div>
+      </Link>
       {kids.map((c) => (
         <CategoryRow key={c.id} cat={c} b={balances.byCategory.get(c.id)!} todayAlloc={dailyAllocations(c, ctx)[ctx.todayIndex]} isOfficeDay={ctx.officeDays.has(today)} />
       ))}
@@ -186,7 +187,7 @@ function CategoryRow({ cat, b, todayAlloc, isOfficeDay }: { cat: Category; b: Ba
   else meta = `${formatEGP(b.spentMonth)} of ${formatEGP(limit)}${todayAlloc > 0 && cat.pacing === 'daily' ? `, +${formatEGP(todayAlloc)} today` : ''}`
 
   return (
-    <div className={`ledger-row ${overMonth || overToday ? 'is-over' : ''}`}>
+    <Link to={`/c/${cat.id}`} className={`ledger-row link-row ${overMonth || overToday ? 'is-over' : ''}`}>
       <span className="label">
         <span className="title">
           {cat.name}
@@ -198,6 +199,6 @@ function CategoryRow({ cat, b, todayAlloc, isOfficeDay }: { cat: Category; b: Ba
       {cat.hasLimit && cat.pacing === 'daily' ? <Money value={b.todayLeft} /> : blank}
       {cat.hasLimit && cat.pacing !== 'monthly' ? <Money value={b.weekLeft} /> : blank}
       {cat.hasLimit ? <Money value={b.monthLeft} /> : <Money value={b.spentMonth} signal={false} />}
-    </div>
+    </Link>
   )
 }

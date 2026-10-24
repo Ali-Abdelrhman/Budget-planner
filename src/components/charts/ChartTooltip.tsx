@@ -13,12 +13,9 @@ interface Props {
   payload?: readonly Item[]
   label?: string | number
   title?: (label: string | number | undefined, payload: readonly Item[]) => string
-  unit?: 'egp' | 'count'
-  /** Maps a capped bar's dataKey to the field holding its real value. */
-  realValues?: Record<string, string>
 }
 
-export function ChartTooltip({ active, payload, label, title, unit = 'egp', realValues }: Props) {
+export function ChartTooltip({ active, payload, label, title }: Props) {
   if (!active || !payload?.length) return null
   return (
     <div className="chart-tooltip">
@@ -28,13 +25,9 @@ export function ChartTooltip({ active, payload, label, title, unit = 'egp', real
         .map((p) => (
           <div className="r" key={String(p.dataKey ?? p.name)}>
             <span style={{ color: p.color }}>{p.name}</span>
-            <span className="amt">{format(realValues?.[String(p.dataKey)] ? p.payload?.[realValues[String(p.dataKey)]] : p.value, unit)}</span>
+            <span className="amt">{formatEGP(Number(p.value))}</span>
           </div>
         ))}
     </div>
   )
-}
-
-function format(v: unknown, unit: 'egp' | 'count') {
-  return unit === 'egp' ? formatEGP(Number(v)) : String(v)
 }
